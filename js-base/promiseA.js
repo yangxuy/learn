@@ -2,6 +2,34 @@ const PENDING = 'pending'
 const FULFILLED = 'fulfill'
 const REJECTED = 'rejected'
 
+// const promise =new Promise((resolve,reject)=>promise)
+function resolvePromise(promise, x, resolve, reject) {
+    if (promise === x) {
+        resolve('循环引用')
+    }
+    // 判断x是否是Promise
+    if ((typeof x === 'object' && x != null) || typeof x !== 'function') {
+        const then = x.then
+
+        // 这里认为是一个promise
+        if (typeof then === 'function') {
+            then.call(
+                x,
+                (re) => {
+                    // 递归直到解析的值是普通股值
+                    resolvePromise(promise, y, resolve, reject)
+                },
+                (rj) => {
+                    reject(reason)
+                }
+            )
+        } else {
+            resolve(x)
+        }
+    } else {
+        resolve(x)
+    }
+}
 class PromiseA {
     constructor(executor) {
         this.state = PENDING
@@ -22,6 +50,7 @@ class PromiseA {
         try {
             executor(resolve, reject)
         } catch (e) {
+            console.log(e)
             reject(e)
         }
     }
@@ -36,13 +65,19 @@ class PromiseA {
             }
         const promiseA = new PromiseA((resolve, reject) => {
             if (this.state === PENDING) {
-                this.onFulfill.push(() => onResolve(this.value))
+                this.onFulfill.push(() => {
+                    setTimeout(() => {
+                        const x = onResolve(this.value)
+                        resolvePromise(promiseA, x, resolve, reject)
+                    })
+                })
                 this.onReject.push(() => onReject(this.reason))
             }
             if (this.state === FULFILLED) {
                 setTimeout(() => {
                     try {
                         const x = onResolve(this.value)
+                        resolvePromise(promiseA, x, resolve, reject)
                     } catch (reason) {
                         console.log(reason)
                     }
@@ -83,14 +118,19 @@ Promise.MyAll = function(arr) {
 }
 
 new PromiseA((resolve, reject) => {
-    setTimeout(() => {
-        resolve(1)
+        setTimeout(() => {
+            resolve(1)
+        })
     })
-}).then(
-    (ret) => {
+    .then(
+        (ret) => {
+            console.log(ret)
+            return 2
+        },
+        (reason) => {
+            console.log(reason)
+        }
+    )
+    .then((ret) => {
         console.log(ret)
-    },
-    (reason) => {
-        console.log(reason)
-    }
-)
+    })
